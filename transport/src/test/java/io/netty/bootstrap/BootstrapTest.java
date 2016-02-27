@@ -30,6 +30,8 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.local.LocalChannel;
 import io.netty.channel.local.LocalServerChannel;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.resolver.AddressResolver;
 import io.netty.resolver.AddressResolverGroup;
 import io.netty.resolver.AbstractAddressResolver;
@@ -40,6 +42,7 @@ import io.netty.util.internal.OneTimeTask;
 import org.junit.AfterClass;
 import org.junit.Test;
 
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -258,6 +261,34 @@ public class BootstrapTest {
         assertThat(connectFuture.await(10000), is(true));
         assertThat(connectFuture.cause(), is(instanceOf(UnknownHostException.class)));
         assertThat(connectFuture.channel().isOpen(), is(false));
+    }
+
+    @Test
+    public void testBindPreservesListenAddr() throws Exception {
+        final ServerBootstrap bootstrap = new ServerBootstrap();
+        bootstrap.group(groupA);
+        bootstrap.channel(LocalServerChannel.class);
+        bootstrap.childHandler(dummyHandler);
+        final LocalAddress expectedAddr = new LocalAddress("specified-listen-address");
+
+        // bind(int inetPort) should preserve the address previously set via localAddress(...)
+        bootstrap.localAddress(expectedAddr);
+        final LocalAddress actualAddr = (LocalAddress) bootstrap.bind(0).sync().channel().localAddress();
+        assertEquals(expectedAddr.toString(), actualAddr.toString());
+    }
+
+    @Test
+    public void testBindPreservesSocketAddr() throws Exception {
+        final ServerBootstrap bootstrap = new ServerBootstrap();
+        bootstrap.group(new NioEventLoopGroup());
+        bootstrap.channel(NioServerSocketChannel.class);
+        bootstrap.childHandler(new DummyHandler());
+        final InetSocketAddress expectedAddr = new InetSocketAddress("::1", 0);
+
+        // bind(int inetPort) should preserve the address previously set via localAddress(...)
+        bootstrap.localAddress(expectedAddr);
+        final InetSocketAddress actualAddr = (InetSocketAddress) bootstrap.bind(0).sync().channel().localAddress();
+        assertEquals(expectedAddr.getAddress(), actualAddr.getAddress());
     }
 
     private static final class TestEventLoopGroup extends DefaultEventLoopGroup {
