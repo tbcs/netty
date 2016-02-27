@@ -880,6 +880,52 @@ public class DefaultChannelPipelineTest {
         assertTrue(handler2.removedHandler.get());
     }
 
+    @Test
+    public void channelRegisteredShouldFireOnAddFirstHandler() {
+        DummyHandler
+            handler1 = new DummyHandler(),
+            handler2 = new DummyHandler(),
+            handler3 = new DummyHandler();
+
+        new EmbeddedChannel()
+            .pipeline()
+            .addFirst(handler1, handler2, handler3)
+            .firstContext()
+            .fireChannelRegistered();
+
+        assertTrue(handler3.fired); // PASS
+        assertTrue(handler2.fired); // PASS
+        assertTrue(handler1.fired); // FAIL
+    }
+
+    @Test
+    public void channelRegisteredShouldFireOnAddLastHandler() {
+        DummyHandler
+            handler1 = new DummyHandler(),
+            handler2 = new DummyHandler(),
+            handler3 = new DummyHandler();
+
+        new EmbeddedChannel()
+            .pipeline()
+            .addLast(handler1, handler2, handler3)
+            .firstContext()
+            .fireChannelRegistered();
+
+        assertTrue(handler1.fired); // PASS
+        assertTrue(handler2.fired); // PASS
+        assertTrue(handler3.fired); // PASS
+    }
+
+    private static final class DummyHandler extends ChannelDuplexHandler {
+        public volatile boolean fired;
+
+        @Override
+        public void channelRegistered(ChannelHandlerContext ctx) {
+            fired = true;
+            ctx.fireChannelRegistered(); // forward event to next handler
+        }
+    }
+
     private static final class CallbackCheckHandler extends ChannelHandlerAdapter {
         final AtomicBoolean addedHandler = new AtomicBoolean();
         final AtomicBoolean removedHandler = new AtomicBoolean();
